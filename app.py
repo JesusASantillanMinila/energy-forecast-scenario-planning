@@ -1,10 +1,9 @@
 import os
-import json
 import pandas as pd
 import numpy as np
 import streamlit as st
 import plotly.graph_objects as go
-from prophet.serialize import model_from_json
+import lightgbm as lgb
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -15,149 +14,151 @@ st.set_page_config(
 
 st.title("⚡ Energy Consumption Forecast & Scenario Planner")
 st.markdown(
-    "Select a city to explore its baseline Prophet forecast or test 'What-If' scenarios "
-    "by altering future predictors (e.g., temperature changes or new data centers)."
+    "Select a city to explore its baseline LightGBM forecast or test 'What-If' scenarios "
+    "by altering future predictors (e.g., temperature or wind changes)."
 )
 
 # --- Helper Functions for Data Loading ---
 @st.cache_resource
-def load_prophet_model(filepath):
-    """Loads and deserializes a saved Prophet model from JSON."""
+def load_lgbm_model(filepath):
+    """Loads a saved LightGBM model."""
     if not os.path.exists(filepath):
         return None
-    with open(filepath, 'r') as f:
-        return model_from_json(json.load(f))
+    return lgb.Booster(model_file=filepath)
 
 @st.cache_data
-def load_json_file(filepath):
-    """Utility to load JSON metadata files."""
+def load_dataset(filepath):
+    """Loads the full historical and forecast dataset."""
     if not os.path.exists(filepath):
         return None
-    with open(filepath, 'r') as f:
-        return json.load(f)
+    df = pd.read_json(filepath, orient='records')
+    df['Date'] = pd.to_datetime(df['Date'])
+    df['City'] = df['City'].astype('category')
+    return df
+
+# --- File Paths & Data Loading ---
+data_path = "full_dataset.json"
+
+if not os.path.exists(data_path):
+    st.error("Missing data file. Please ensure `full_dataset.json` is in the main directory.")
+    st.stop()
+
+# Load Data First
+df_all = load_dataset(data_path)
 
 # --- Sidebar: City Selection ---
 CITIES = ["Chicago", "New York", "Seattle", "Miami", "Dallas"]
 selected_city = st.sidebar.selectbox("🏙️ Select City", CITIES)
 
-city_safe = selected_city.replace(" ", "_").lower()
-model_path = os.path.join("models", f"{city_safe}_prophet_model.json")
-forecast_path = os.path.join("models", f"{city_safe}_forecast.json")
-predictors_path = os.path.join("models", f"{city_safe}_predictors.json")
+# Dynamically load the correct model for the selected city
+safe_city_name = selected_city.replace(" ", "_")
+model_path = f"forecast_model_{safe_city_name}.txt"
 
-# --- Verify File Existence ---
-if not (os.path.exists(model_path) and os.path.exists(forecast_path) and os.path.exists(predictors_path)):
-    st.error(
-        f"Missing model outputs for **{selected_city}** in the `models/` folder. "
-        f"Please run `forecast_prophet()` first to generate the required JSON files."
-    )
+if not os.path.exists(model_path):
+    st.error(f"Missing model file: `{model_path}`. Please ensure it is in the main directory.")
     st.stop()
 
-# Load Model and Data
-model = load_prophet_model(model_path)
-baseline_forecast_df = pd.read_json(forecast_path, orient='records')
-baseline_forecast_df['ds'] = pd.to_datetime(baseline_forecast_df['ds'])
-predictor_meta = load_json_file(predictors_path)
-selected_predictors = predictor_meta.get("best_predictors", [])
+model = load_lgbm_model(model_path)
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("📌 Selected Predictors")
-if selected_predictors:
-    for pred in selected_predictors:
-        st.sidebar.markdown(f"- `{pred}`")
-else:
-    st.sidebar.info("No external predictors were selected during model training for this city.")
+# Filter dataset for the selected city
+city_df = df_all[df_all['City'] == selected_city].copy().reset_index(drop=True)
+
+# Define features used by the model
+# NOTE: 'City' MUST be in exclude_cols since the individual models were trained without it
+exclude_cols = [
+    'Date', 'STATE_NAME', 'COUNTY_NAME', 'MWh_Consumed', 
+    'Holiday_Not_Holiday', 'Year', 'Month', 'DayOfWeek', 'Forecasted_MWh', 'City'
+]
+features = [col for col in city_df.columns if col not in exclude_cols]
 
 # --- Sidebar: What-If Controls ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("🎛️ 'What-If' Scenario Controls")
 st.sidebar.caption("Adjust values for the future forecast horizon.")
 
-temp_delta = 0.0
-dc_delta = 0
-humidity_delta = 0.0
+temp_delta = st.sidebar.slider(
+    "Temperature Shift (°C)",
+    min_value=-15.0,
+    max_value=15.0,
+    value=0.0,
+    step=0.5,
+    help="Applies a temperature change to the forecast period."
+)
 
-# 1. Temperature Control
-if any(col in selected_predictors for col in ['Temp_Mean_C', 'Temp_Max_C', 'Temp_Min_C', 'HDD', 'CDD']):
-    temp_delta = st.sidebar.slider(
-        "Temperature Shift (°C)",
-        min_value=-15.0,
-        max_value=15.0,
-        value=0.0,
-        step=0.5,
-        help="Applies a temperature change to the forecast period."
-    )
+humidity_delta = st.sidebar.slider(
+    "Humidity Shift (%)",
+    min_value=-30.0,
+    max_value=30.0,
+    value=0.0,
+    step=1.0
+)
 
-# 2. Data Center Control
-if 'total_data_center_count' in selected_predictors:
-    dc_delta = st.sidebar.number_input(
-        "Data Center Delta",
-        min_value=-10,
-        max_value=50,
-        value=0,
-        step=1,
-        help="Add or remove data centers."
-    )
+wind_delta = st.sidebar.slider(
+    "Wind Speed Shift (km/h)",
+    min_value=-50.0,
+    max_value=50.0,
+    value=0.0,
+    step=1.0,
+    help="Applies a wind speed change to the forecast period."
+)
 
-# 3. Humidity Control
-if 'Humidity_Pct' in selected_predictors:
-    humidity_delta = st.sidebar.slider(
-        "Humidity Shift (%)",
-        min_value=-30.0,
-        max_value=30.0,
-        value=0.0,
-        step=1.0
-    )
+solar_delta = st.sidebar.slider(
+    "Solar Irradiance Shift (MJ/m²)",
+    min_value=-20.0,
+    max_value=20.0,
+    value=0.0,
+    step=1.0,
+    help="Applies a solar irradiance change to the forecast period."
+)
 
 # --- Scenario Simulation Engine ---
-scenario_df = baseline_forecast_df.copy()
+scenario_df = city_df.copy()
 
 # Identify future forecast rows (where actual historical data is missing)
-future_mask = scenario_df['actual_y'].isna()
+future_mask = scenario_df['MWh_Consumed'].isna()
 
-# Apply Temperature shifts & recalculate derived Degree Days (HDD/CDD)
+# Baseline Predictions (No adjustments)
+city_df.loc[future_mask, 'yhat_baseline'] = model.predict(city_df.loc[future_mask, features])
+
+# Apply 'What-If' Modifications
 if temp_delta != 0.0:
     for col in ['Temp_Mean_C', 'Temp_Max_C', 'Temp_Min_C']:
         if col in scenario_df.columns:
             scenario_df.loc[future_mask, col] += temp_delta
-    
-    # Recalculate HDD & CDD dynamically if they are used by the model
-    baseline_c = 18.3
-    if 'Temp_Mean_C' in scenario_df.columns:
-        t_mean = scenario_df.loc[future_mask, 'Temp_Mean_C']
-        if 'HDD' in scenario_df.columns:
-            scenario_df.loc[future_mask, 'HDD'] = (baseline_c - t_mean).clip(lower=0)
-        if 'CDD' in scenario_df.columns:
-            scenario_df.loc[future_mask, 'CDD'] = (t_mean - baseline_c).clip(lower=0)
 
-# Apply Data Center modifications
-if dc_delta != 0 and 'total_data_center_count' in scenario_df.columns:
-    scenario_df.loc[future_mask, 'total_data_center_count'] = (
-        scenario_df.loc[future_mask, 'total_data_center_count'] + dc_delta
-    ).clip(lower=0)
-
-# Apply Humidity modifications
 if humidity_delta != 0.0 and 'Humidity_Pct' in scenario_df.columns:
     scenario_df.loc[future_mask, 'Humidity_Pct'] = (
         scenario_df.loc[future_mask, 'Humidity_Pct'] + humidity_delta
     ).clip(lower=0, upper=100)
+    
+if wind_delta != 0.0 and 'Wind_Speed_kmh' in scenario_df.columns:
+    scenario_df.loc[future_mask, 'Wind_Speed_kmh'] = (
+        scenario_df.loc[future_mask, 'Wind_Speed_kmh'] + wind_delta
+    ).clip(lower=0)
 
-# Re-run Prophet prediction for the scenario
-predict_cols = ['ds'] + selected_predictors
-scenario_predictions = model.predict(scenario_df[predict_cols])
-scenario_df['yhat_scenario'] = scenario_predictions['yhat']
+if solar_delta != 0.0 and 'Solar_Irradiance_MJm2' in scenario_df.columns:
+    scenario_df.loc[future_mask, 'Solar_Irradiance_MJm2'] = (
+        scenario_df.loc[future_mask, 'Solar_Irradiance_MJm2'] + solar_delta
+    ).clip(lower=0)
+
+# Scenario Predictions (With adjustments)
+scenario_df.loc[future_mask, 'yhat_scenario'] = model.predict(scenario_df.loc[future_mask, features])
+
+# Merge Baseline and Scenario predictions for plotting
+plot_df = city_df[['Date', 'MWh_Consumed', 'yhat_baseline']].copy()
+plot_df['yhat_scenario'] = scenario_df['yhat_scenario']
 
 # --- KPI Metric Summary ---
 st.subheader(f"📈 Scenario Impact Summary: {selected_city}")
 
-base_future_avg = scenario_df.loc[future_mask, 'yhat'].mean()
-scen_future_avg = scenario_df.loc[future_mask, 'yhat_scenario'].mean()
+base_future_avg = plot_df.loc[future_mask, 'yhat_baseline'].mean()
+scen_future_avg = plot_df.loc[future_mask, 'yhat_scenario'].mean()
 diff_mwh = scen_future_avg - base_future_avg
 pct_diff = (diff_mwh / base_future_avg * 100) if base_future_avg != 0 else 0.0
 
 col1, col2, col3 = st.columns(3)
-col1.metric("Baseline Avg Demand", f"{base_future_avg:,.1f} MWh")
-col2.metric("Scenario Avg Demand", f"{scen_future_avg:,.1f} MWh", delta=f"{diff_mwh:+,.1f} MWh")
+col1.metric("Baseline Avg Demand", f"{(base_future_avg / 1000):,.1f} K")
+col2.metric("Scenario Avg Demand", f"{(scen_future_avg / 1000):,.1f} K", delta=f"{(diff_mwh / 1000):+,.1f} K")
 col3.metric("Projected Impact", f"{pct_diff:+.2f}%")
 
 # --- Interactive Plotly Chart ---
@@ -169,17 +170,16 @@ timeframe = st.radio(
     horizontal=True
 )
 
-plot_df = scenario_df.copy()
 if timeframe == "Last 60 Days + Future Forecast":
-    cutoff_date = plot_df['ds'].max() - pd.Timedelta(days=60)
-    plot_df = plot_df[plot_df['ds'] >= cutoff_date]
+    cutoff_date = plot_df['Date'].max() - pd.Timedelta(days=60)
+    plot_df = plot_df[plot_df['Date'] >= cutoff_date]
 
 fig = go.Figure()
 
 # Historical Actual Demand
 fig.add_trace(go.Scatter(
-    x=plot_df['ds'],
-    y=plot_df['actual_y'],
+    x=plot_df['Date'],
+    y=plot_df['MWh_Consumed'],
     mode='lines',
     name='Actual Consumption',
     line=dict(color='#888888', width=1.5)
@@ -187,8 +187,8 @@ fig.add_trace(go.Scatter(
 
 # Baseline Model Prediction
 fig.add_trace(go.Scatter(
-    x=plot_df['ds'],
-    y=plot_df['yhat'],
+    x=plot_df['Date'],
+    y=plot_df['yhat_baseline'],
     mode='lines',
     name='Baseline Forecast',
     line=dict(color='#1f77b4', width=2.5)
@@ -196,7 +196,7 @@ fig.add_trace(go.Scatter(
 
 # What-If Scenario Prediction
 fig.add_trace(go.Scatter(
-    x=plot_df['ds'],
+    x=plot_df['Date'],
     y=plot_df['yhat_scenario'],
     mode='lines',
     name='Scenario Forecast',

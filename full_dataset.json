@@ -38327,11 +38327,11 @@
     {
         "Date":"2026-11-12",
         "Temp_Max_C":6.7,
-        "Temp_Min_C":-0.2,
-        "Temp_Mean_C":4.3,
+        "Temp_Min_C":0.2,
+        "Temp_Mean_C":4.5,
         "Humidity_Pct":81,
-        "Wind_Speed_kmh":27.7,
-        "Solar_Irradiance_MJm2":6.89,
+        "Wind_Speed_kmh":26.4,
+        "Solar_Irradiance_MJm2":6.49,
         "City":"Chicago",
         "STATE_NAME":"Illinois",
         "COUNTY_NAME":"Cook",
@@ -38357,7 +38357,7 @@
         "Holiday_Veterans_Day":0,
         "Holiday_Washingtons_Birthday":0,
         "total_data_center_count":38.0,
-        "Forecasted_MWh":2299702.7130190129
+        "Forecasted_MWh":2241233.2613561694
     },
     {
         "Date":"2026-11-13",
@@ -77176,12 +77176,12 @@
     },
     {
         "Date":"2026-11-12",
-        "Temp_Max_C":25.2,
+        "Temp_Max_C":25.0,
         "Temp_Min_C":11.1,
         "Temp_Mean_C":17.6,
         "Humidity_Pct":56,
-        "Wind_Speed_kmh":14.7,
-        "Solar_Irradiance_MJm2":14.9,
+        "Wind_Speed_kmh":14.8,
+        "Solar_Irradiance_MJm2":14.85,
         "City":"Dallas",
         "STATE_NAME":"Texas",
         "COUNTY_NAME":"Dallas",
@@ -77207,7 +77207,7 @@
         "Holiday_Veterans_Day":0,
         "Holiday_Washingtons_Birthday":0,
         "total_data_center_count":32.0,
-        "Forecasted_MWh":1225602.6271190746
+        "Forecasted_MWh":1224900.0300830449
     },
     {
         "Date":"2026-11-13",
@@ -116026,12 +116026,12 @@
     },
     {
         "Date":"2026-11-12",
-        "Temp_Max_C":27.9,
+        "Temp_Max_C":28.1,
         "Temp_Min_C":21.7,
-        "Temp_Mean_C":24.6,
+        "Temp_Mean_C":24.5,
         "Humidity_Pct":79,
-        "Wind_Speed_kmh":23.9,
-        "Solar_Irradiance_MJm2":14.45,
+        "Wind_Speed_kmh":18.8,
+        "Solar_Irradiance_MJm2":13.25,
         "City":"Miami",
         "STATE_NAME":"Florida",
         "COUNTY_NAME":"Miami-Dade",
@@ -116057,7 +116057,7 @@
         "Holiday_Veterans_Day":0,
         "Holiday_Washingtons_Birthday":0,
         "total_data_center_count":4.0,
-        "Forecasted_MWh":353145.1194383672
+        "Forecasted_MWh":345214.9001200553
     },
     {
         "Date":"2026-11-13",
@@ -154876,12 +154876,12 @@
     },
     {
         "Date":"2026-11-12",
-        "Temp_Max_C":16.5,
-        "Temp_Min_C":10.2,
-        "Temp_Mean_C":12.5,
-        "Humidity_Pct":77,
-        "Wind_Speed_kmh":26.2,
-        "Solar_Irradiance_MJm2":5.68,
+        "Temp_Max_C":15.8,
+        "Temp_Min_C":9.0,
+        "Temp_Mean_C":12.2,
+        "Humidity_Pct":81,
+        "Wind_Speed_kmh":24.2,
+        "Solar_Irradiance_MJm2":4.45,
         "City":"New York",
         "STATE_NAME":"New York",
         "COUNTY_NAME":"New York",
@@ -154907,15 +154907,15 @@
         "Holiday_Veterans_Day":0,
         "Holiday_Washingtons_Birthday":0,
         "total_data_center_count":0.0,
-        "Forecasted_MWh":386196.2277647015
+        "Forecasted_MWh":382766.8132530432
     },
     {
         "Date":"2026-11-13",
-        "Temp_Max_C":10.2,
+        "Temp_Max_C":9.0,
         "Temp_Min_C":2.7,
-        "Temp_Mean_C":5.6,
-        "Humidity_Pct":90,
-        "Wind_Speed_kmh":24.6,
+        "Temp_Mean_C":5.4,
+        "Humidity_Pct":89,
+        "Wind_Speed_kmh":25.0,
         "Solar_Irradiance_MJm2":1.69,
         "City":"New York",
         "STATE_NAME":"New York",
@@ -154942,7 +154942,7 @@
         "Holiday_Veterans_Day":0,
         "Holiday_Washingtons_Birthday":0,
         "total_data_center_count":0.0,
-        "Forecasted_MWh":393350.1053762494
+        "Forecasted_MWh":392879.713712418
     },
     {
         "Date":"2026-11-14",
@@ -193726,12 +193726,12 @@
     },
     {
         "Date":"2026-11-12",
-        "Temp_Max_C":15.1,
+        "Temp_Max_C":15.5,
         "Temp_Min_C":9.9,
-        "Temp_Mean_C":12.2,
-        "Humidity_Pct":75,
-        "Wind_Speed_kmh":9.4,
-        "Solar_Irradiance_MJm2":5.23,
+        "Temp_Mean_C":12.3,
+        "Humidity_Pct":77,
+        "Wind_Speed_kmh":8.5,
+        "Solar_Irradiance_MJm2":5.43,
         "City":"Seattle",
         "STATE_NAME":"Washington",
         "COUNTY_NAME":"King",
@@ -193757,14 +193757,14 @@
         "Holiday_Veterans_Day":0,
         "Holiday_Washingtons_Birthday":0,
         "total_data_center_count":15.0,
-        "Forecasted_MWh":160859.3238572651
+        "Forecasted_MWh":160319.557932543
     },
     {
         "Date":"2026-11-13",
         "Temp_Max_C":12.7,
         "Temp_Min_C":9.0,
-        "Temp_Mean_C":10.8,
-        "Humidity_Pct":74,
+        "Temp_Mean_C":10.9,
+        "Humidity_Pct":73,
         "Wind_Speed_kmh":21.8,
         "Solar_Irradiance_MJm2":2.75,
         "City":"Seattle",
@@ -193792,7 +193792,7 @@
         "Holiday_Veterans_Day":0,
         "Holiday_Washingtons_Birthday":0,
         "total_data_center_count":15.0,
-        "Forecasted_MWh":167375.7829647859
+        "Forecasted_MWh":167115.3103345508
     },
     {
         "Date":"2026-11-14",

@@ -75,53 +75,36 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("🎛️ 'What-If' Scenario Controls")
 st.sidebar.caption("Adjust values for the future forecast horizon.")
 
-# Callback function to reset session state variables
 def reset_scenarios():
     st.session_state.temp_delta = 0.0
     st.session_state.humidity_delta = 0.0
     st.session_state.wind_delta = 0.0
     st.session_state.solar_delta = 0.0
 
-# Add the reset button to the sidebar
 st.sidebar.button("Reset Scenarios to Zero", on_click=reset_scenarios)
 
 temp_delta = st.sidebar.slider(
     "Temperature Shift (°C)",
-    min_value=-15.0,
-    max_value=15.0,
-    value=0.0,
-    step=0.5,
-    key="temp_delta",
-    help="Applies a temperature change to the forecast period."
+    min_value=-15.0, max_value=15.0, value=0.0, step=0.5,
+    key="temp_delta", help="Applies a temperature change to the forecast period."
 )
 
 humidity_delta = st.sidebar.slider(
     "Humidity Shift (%)",
-    min_value=-30.0,
-    max_value=30.0,
-    value=0.0,
-    step=1.0,
+    min_value=-30.0, max_value=30.0, value=0.0, step=1.0,
     key="humidity_delta"
 )
 
 wind_delta = st.sidebar.slider(
     "Wind Speed Shift (km/h)",
-    min_value=-50.0,
-    max_value=50.0,
-    value=0.0,
-    step=1.0,
-    key="wind_delta",
-    help="Applies a wind speed change to the forecast period."
+    min_value=-50.0, max_value=50.0, value=0.0, step=1.0,
+    key="wind_delta", help="Applies a wind speed change to the forecast period."
 )
 
 solar_delta = st.sidebar.slider(
     "Solar Irradiance Shift (MJ/m²)",
-    min_value=-20.0,
-    max_value=20.0,
-    value=0.0,
-    step=1.0,
-    key="solar_delta",
-    help="Applies a solar irradiance change to the forecast period."
+    min_value=-20.0, max_value=20.0, value=0.0, step=1.0,
+    key="solar_delta", help="Applies a solar irradiance change to the forecast period."
 )
 
 # --- Scenario Simulation Engine ---
@@ -165,6 +148,10 @@ for col in ['Temp_Mean_C', 'Humidity_Pct', 'Wind_Speed_kmh', 'Solar_Irradiance_M
     if col in scenario_df.columns:
         plot_df[col] = scenario_df[col]
 
+# --- Filter to Last 60 Days ---
+cutoff_date = plot_df['Date'].max() - pd.Timedelta(days=60)
+plot_df = plot_df[plot_df['Date'] >= cutoff_date]
+
 # --- KPI Metric Summary & Controls ---
 st.markdown(f"**📈 Impact Summary ({selected_city})**")
 
@@ -176,7 +163,7 @@ pct_diff = (diff_mwh / base_future_avg * 100) if base_future_avg != 0 else 0.0
 col1, col2, col3, col4 = st.columns([1, 1, 1, 1.8])
 
 col1.metric("Baseline Avg Demand", f"{(base_future_avg / 1000):,.1f}K MWh")
-col2.metric("Scenario Avg Demand", f"{(scen_future_avg / 1000):,.1f}K MWh", delta=f"{(diff_mwh / 1000):+,.1f} K MWh")
+col2.metric("Scenario Avg Demand", f"{(scen_future_avg / 1000):,.1f}K MWh", delta=f"{(diff_mwh / 1000):+,.1f}K MWh")
 col3.metric("Projected Impact", f"{pct_diff:+.2f}%")
 
 # --- Interactive Plotly Chart ---

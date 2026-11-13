@@ -36,6 +36,12 @@ def load_dataset(filepath):
     df['City'] = df['City'].astype('category')
     return df
 
+def reset_scenarios():
+    st.session_state.temp_delta = 0.0
+    st.session_state.humidity_delta = 0.0
+    st.session_state.wind_delta = 0.0
+    st.session_state.solar_delta = 0.0
+
 # --- File Paths & Data Loading ---
 data_path = "full_dataset.json"
 
@@ -46,11 +52,54 @@ if not os.path.exists(data_path):
 # Load Data First
 df_all = load_dataset(data_path)
 
-# --- Sidebar: City Selection ---
-CITIES = ["Chicago", "New York", "Seattle", "Miami", "Dallas"]
-selected_city = st.sidebar.selectbox("🏙️ Select City", CITIES)
+# --- Expander for Controls (Placed BEFORE Impact Summary) ---
+with st.expander("🎛️ Settings & Controls"):
+    # 1. City Controls
+    CITIES = ["Chicago", "New York", "Seattle", "Miami", "Dallas"]
+    selected_city = st.selectbox("🏙️ Select City", CITIES)
+    
+    st.markdown("---")
+    
+    # 2. What-If Scenario Controls
+    st.subheader("🎛️ 'What-If' Scenario Controls")
+    st.caption("Adjust values for the future forecast horizon.")
+    st.button("Reset Scenarios to Zero", on_click=reset_scenarios)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        temp_delta = st.slider(
+            "Temperature Shift (°C)",
+            min_value=-15.0, max_value=15.0, value=0.0, step=0.5,
+            key="temp_delta", help="Applies a temperature change to the forecast period."
+        )
+        wind_delta = st.slider(
+            "Wind Speed Shift (km/h)",
+            min_value=-50.0, max_value=50.0, value=0.0, step=1.0,
+            key="wind_delta", help="Applies a wind speed change to the forecast period."
+        )
+    with col2:
+        humidity_delta = st.slider(
+            "Humidity Shift (%)",
+            min_value=-30.0, max_value=30.0, value=0.0, step=1.0,
+            key="humidity_delta"
+        )
+        solar_delta = st.slider(
+            "Solar Irradiance Shift (MJ/m²)",
+            min_value=-20.0, max_value=20.0, value=0.0, step=1.0,
+            key="solar_delta", help="Applies a solar irradiance change to the forecast period."
+        )
 
-# Dynamically load the correct model for the selected city
+    st.markdown("---")
+    
+    # 3. Additional Features Controls
+    weather_features = st.multiselect(
+        "Additional Features:",
+        options=["Temperature", "Humidity", "Wind Speed", "Solar Irradiance"],
+        default=[],
+        help="Overlay weather features on a secondary axis."
+    )
+
+# --- Process Data & Run Model (Outside Expander) ---
 safe_city_name = selected_city.replace(" ", "_")
 model_path = f"forecast_model_{safe_city_name}.txt"
 
@@ -69,43 +118,6 @@ exclude_cols = [
     'Holiday_Not_Holiday', 'Year', 'Month', 'DayOfWeek', 'Forecasted_MWh', 'City'
 ]
 features = [col for col in city_df.columns if col not in exclude_cols]
-
-# --- Sidebar: What-If Controls ---
-st.sidebar.markdown("---")
-st.sidebar.subheader("🎛️ 'What-If' Scenario Controls")
-st.sidebar.caption("Adjust values for the future forecast horizon.")
-
-def reset_scenarios():
-    st.session_state.temp_delta = 0.0
-    st.session_state.humidity_delta = 0.0
-    st.session_state.wind_delta = 0.0
-    st.session_state.solar_delta = 0.0
-
-st.sidebar.button("Reset Scenarios to Zero", on_click=reset_scenarios)
-
-temp_delta = st.sidebar.slider(
-    "Temperature Shift (°C)",
-    min_value=-15.0, max_value=15.0, value=0.0, step=0.5,
-    key="temp_delta", help="Applies a temperature change to the forecast period."
-)
-
-humidity_delta = st.sidebar.slider(
-    "Humidity Shift (%)",
-    min_value=-30.0, max_value=30.0, value=0.0, step=1.0,
-    key="humidity_delta"
-)
-
-wind_delta = st.sidebar.slider(
-    "Wind Speed Shift (km/h)",
-    min_value=-50.0, max_value=50.0, value=0.0, step=1.0,
-    key="wind_delta", help="Applies a wind speed change to the forecast period."
-)
-
-solar_delta = st.sidebar.slider(
-    "Solar Irradiance Shift (MJ/m²)",
-    min_value=-20.0, max_value=20.0, value=0.0, step=1.0,
-    key="solar_delta", help="Applies a solar irradiance change to the forecast period."
-)
 
 # --- Scenario Simulation Engine ---
 scenario_df = city_df.copy()
@@ -152,7 +164,7 @@ for col in ['Temp_Mean_C', 'Humidity_Pct', 'Wind_Speed_kmh', 'Solar_Irradiance_M
 cutoff_date = plot_df['Date'].max() - pd.Timedelta(days=60)
 plot_df = plot_df[plot_df['Date'] >= cutoff_date]
 
-# --- KPI Metric Summary & Controls ---
+# --- KPI Metric Summary (Outside Expander) ---
 st.markdown(f"**📈 Impact Summary ({selected_city})**")
 
 base_future_avg = plot_df.loc[future_mask, 'yhat_baseline'].mean()
@@ -166,22 +178,9 @@ col1.metric("Baseline Avg Demand", f"{(base_future_avg / 1000):,.1f}K MWh")
 col2.metric("Scenario Avg Demand", f"{(scen_future_avg / 1000):,.1f}K MWh", delta=f"{(diff_mwh / 1000):+,.1f}K MWh")
 col3.metric("Projected Impact", f"{pct_diff:+.2f}%")
 
-# --- Interactive Plotly Chart ---
+# --- Interactive Plotly Chart (Outside Expander) ---
 st.markdown(" #### 📊 Model Comparison Chart")
 
-chart_col, controls_col = st.columns([5, 1])
-
-# 1. Render the new multiselect filter
-with controls_col:
-    st.write("\n\n")
-    weather_features = st.multiselect(
-        "Additional Features:",
-        options=["Temperature", "Humidity", "Wind Speed", "Solar Irradiance"],
-        default=[],
-        help="Overlay weather features on a secondary axis."
-    )
-
-# 2. Build the Plotly figure
 fig = go.Figure()
 
 fig.add_trace(go.Scatter(
@@ -200,7 +199,6 @@ fig.add_trace(go.Scatter(
     line=dict(color='#ff7f0e', width=2.5, dash='dash')
 ))
 
-# 3. Add Optional Weather Features on a Secondary Y-Axis
 if "Temperature" in weather_features and 'Temp_Mean_C' in plot_df:
     fig.add_trace(go.Scatter(x=plot_df['Date'], y=plot_df['Temp_Mean_C'], mode='lines', name='Temp (°C)', yaxis='y2', line=dict(dash='dot', width=1.5)))
 if "Humidity" in weather_features and 'Humidity_Pct' in plot_df:
@@ -230,6 +228,4 @@ if weather_features:
 
 fig.update_layout(**layout_updates)
 
-# 4. Render the chart
-with chart_col:
-    st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True)
